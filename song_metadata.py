@@ -13,3 +13,7 @@ def add_song_metadata(song_metadata, title, artist, filename):
         "filename": filename
     }
     return song_id
+
+#returns list of all songs in metadata dict
+def get_song_metadata(song_metadata, song_id):
+    return song_metadata[song_id]
