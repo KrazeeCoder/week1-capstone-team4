@@ -3,3 +3,13 @@ def get_song_id(song_metadata):
     if len(song_metadata) == 0:
         return 0
     return max(song_metadata.keys()) + 1
+
+#adds a new song to the metadata dict
+def add_song_metadata(song_metadata, title, artist, filename):
+    song_id = get_song_id(song_metadata)
+    song_metadata[song_id] = {
+        "title": title,
+        "artist": artist,
+        "filename": filename
+    }
+    return song_id
