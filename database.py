@@ -100,6 +100,9 @@ class AudioDatabase:
         # Keep only the top 3 songs
         top_3 = song_scores[:3]
 
+        if not top_3:
+            return {"best_matches": {}}
+
         # Turn top 3 scores into probabilities
         total_score = sum(score for _, score in top_3)
 
