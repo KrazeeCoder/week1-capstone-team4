@@ -34,4 +34,4 @@ def run_demo(database, record_seconds=10):
         print("No confident match found.")
     else:
         title, artist, probability = result
-        print( f"We are {probability*100:.1f}% sure that "f"'{title}' by {artist} is playing.")
+        print( f"We are {probability:.1f}% sure that "f"'{title}' by {artist} is playing.")
