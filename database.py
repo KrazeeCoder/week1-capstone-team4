@@ -45,7 +45,26 @@ class AudioDatabase:
     # Nishanth Part:
     def store_fingerprints(self, song_id, fingerprints):
         """Appends fanout tuples to self.fingerprints."""
-        pass
+        for fingerprint_hash, anchor_time in fingerprints:
+            self.fingerprints.setdefault(fingerprint_hash, []).append((song_id, anchor_time))
+
+    def save_data(self, filepath=None):
+        target = filepath or self.db_filepath
+        payload = {
+            "metadata": self.metadata,
+            "fingerprints": self.fingerprints,
+        }
+        with open(target, "wb") as f:
+            pickle.dump(payload, f)
+
+    def load_data(self, filepath=None):
+        target = filepath or self.db_filepath
+        if not os.path.exists(target):
+            return
+        with open(target, "rb") as f:
+            payload = pickle.load(f)
+        self.metadata = payload.get("metadata", {})
+        self.fingerprints = payload.get("fingerprints", {})
 
     def query(self, clip_fingerprints):
         """Handles the offset tallying and returns best match/confidence."""
@@ -53,4 +72,13 @@ class AudioDatabase:
         
     def _scrub_fingerprints(self, song_id):
         """Removes a deleted song's tuples from the self.fingerprints."""
-        pass
+        keys_to_delete = []
+        for fp_hash, matches in self.fingerprints.items():
+            filtered = [entry for entry in matches if entry[0] != song_id]
+            if filtered:
+                self.fingerprints[fp_hash] = filtered
+            else:
+                keys_to_delete.append(fp_hash)
+
+        for fp_hash in keys_to_delete:
+            del self.fingerprints[fp_hash]
