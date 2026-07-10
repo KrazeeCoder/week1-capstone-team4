@@ -133,8 +133,3 @@ class AudioDatabase:
         # if all the songs that have that peak_pair encoding is the one that is trying to be deleted.
         for fingerprint_hash in empty_keys:
             del self.fingerprints[fingerprint_hash]
-
-    def delete_song(self, song_id):
-        self._scrub_fingerprints(song_id)
-        self.metadata.pop(song_id, None)    
-
