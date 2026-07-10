@@ -94,6 +94,9 @@ class AudioDatabase:
         all_scores = list(song_best_scores.items())
         all_scores.sort(key=lambda item: item[1], reverse=True)
         top_3 = all_scores[:3]
+        
+        if not top_3:
+            return {"best_matches": {}}
 
         # top 3 scores into probabillities
         total_score = sum(score for _, score in top_3)
