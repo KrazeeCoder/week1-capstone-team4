@@ -11,9 +11,7 @@ def make_random_clip(samples: np.ndarray, clip_length: float, sample_rate: int, 
     num_clips = int(clip_length * sample_rate)
 
     if num_clips > len(samples):
-        raise ValueError(
-            print("The clip lenght you asked for is longer than the recording")
-        )
+        raise ValueError("The clip length you asked for is longer than the recording")
 
     max_start = len(samples) - num_clips #las valid starting point
     start_idx = rng.integers(0, max_start + 1)
