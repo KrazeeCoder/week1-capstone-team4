@@ -1,5 +1,6 @@
 import pickle
 import os
+import song_metadata
 
 class AudioDatabase:
     def __init__(self, db_filepath="data.pkl"):
@@ -14,23 +15,32 @@ class AudioDatabase:
         self.fingerprints = {} 
 
     # Sriam Part:
-    def save_data(self, filepath=None):
-        pass
-
-    def load_data(self, filepath=None):
-        pass
-
-    def add_song(self, title, artist):
-        """Stops duplicates, returns new song_id."""
-        pass
-
     def inspect_database(self):
-        """Prints all songs in the database."""
-        pass
+        if not self.metadata:
+            print("The database is emptyy")
+            return
+            
+        print(f"\n{'ID':<5} | {'Title':<30} | {'Artist':<20} | {'Filename'}")
+        print("-" * 80)
+        
+        songs = song_metadata.list_songs(self.metadata)
+        for song in songs:
+            print(f"{song['song_id']:<5} | {song['title']:<30} | {song['artist']:<20} | {song['filename']}")
+        print("\n")
+
+    def add_song(self, title, artist, filename):
+        
+        new_id = song_metadata.add_song_metadata(self.metadata, title, artist, filename)
+        print(f"Processed, '{title}' by {artist}. DB ID is: {new_id}")
+        return new_id
 
     def delete_song(self, song_id):
-        """Deletes metadata and does the fingerprint cleanup."""
-        pass
+        if song_id in self.metadata:
+            info = self.metadata.pop(song_id)
+            print(f"Deleted '{info['title']}' from the metadata.")
+            self._scrub_fingerprints(song_id)
+        else:
+            print(f"Song ID {song_id} not found.")
 
     # Nishanth Part:
     def store_fingerprints(self, song_id, fingerprints):
@@ -44,4 +54,3 @@ class AudioDatabase:
     def _scrub_fingerprints(self, song_id):
         """Removes a deleted song's tuples from the self.fingerprints."""
         pass
-
