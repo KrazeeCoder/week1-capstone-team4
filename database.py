@@ -94,7 +94,8 @@ class AudioDatabase:
         all_scores = list(song_best_scores.items())
         all_scores.sort(key=lambda item: item[1], reverse=True)
         top_3 = all_scores[:3]
-        
+        for (song_id, offset), count in tally.most_common():
+            print(f"song_id={song_id}, offset={offset}, count={count}")
         if not top_3:
             return {"best_matches": {}}
 

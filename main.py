@@ -33,6 +33,8 @@ def main():
 		add_song(db)
 	elif choice == "2":
 		run_demo(db)
+	elif choice == "3":
+		db.inspect_database()
 	else:
 		print("Unrecognized option, please enter '1' or '2'.")
 

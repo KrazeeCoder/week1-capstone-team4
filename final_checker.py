@@ -12,11 +12,10 @@ def identify_clip(samples, sample_rate, database):
     fingerprints = peaks_to_fingerprints(peaks)
 
     result = database.query(fingerprints)
-
-    if not matches:
-        return None
     matches = result["best_matches"]
     
+    if not matches:
+        return None
     best_song_id = max(matches, key=matches.get) 
     probability = matches[best_song_id]
 
