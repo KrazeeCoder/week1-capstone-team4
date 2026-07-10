@@ -20,6 +20,6 @@ def peaks_to_fingerprints(
                     other_freq // 4,
                     delta_t // 2,
                 )
-            fingerprints.append((quantized_fingerprint, anchor_time))
+                fingerprints.append((quantized_fingerprint, anchor_time))
 
     return fingerprints
