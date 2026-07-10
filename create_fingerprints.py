@@ -15,11 +15,11 @@ def peaks_to_fingerprints(
                 #compute the time gap between the two peaks.
                 delta_t = other_time - anchor_time
 
-            quantized_fingerprint = (
-                anchor_freq // 4,
-                other_freq // 4,
-                delta_t // 2,
-            )
+                quantized_fingerprint = (
+                    anchor_freq // 4,
+                    other_freq // 4,
+                    delta_t // 2,
+                )
             fingerprints.append((quantized_fingerprint, anchor_time))
 
     return fingerprints
