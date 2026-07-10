@@ -68,6 +68,7 @@ class AudioDatabase:
         """Appends fanout tuples to self.fingerprints."""
         pass
 
+
     def query(self, clip_fingerprints):
         """Handles the offset tallying and returns best match/confidence."""
         offset_tallies = {}
