@@ -42,6 +42,26 @@ class AudioDatabase:
         else:
             print(f"Song ID {song_id} not found.")
 
+    def save_data(self, filepath=None):
+        target = filepath or self.db_filepath
+        payload = {
+            "metadata": self.metadata,
+            "fingerprints": self.fingerprints,
+        }
+        with open(target, "wb") as file_obj:
+            pickle.dump(payload, file_obj)
+
+    def load_data(self, filepath=None):
+        target = filepath or self.db_filepath
+        if not os.path.exists(target):
+            return
+
+        with open(target, "rb") as file_obj:
+            payload = pickle.load(file_obj)
+
+        self.metadata = payload.get("metadata", {})
+        self.fingerprints = payload.get("fingerprints", {})
+
 
     # Nihanth Part:
     def store_fingerprints(self, song_id, fingerprints):
@@ -77,6 +97,9 @@ class AudioDatabase:
         # Keep only the top 3 songs
         top_3 = song_scores[:3]
 
+        if not top_3:
+            return {"best_matches": {}}
+
         # Turn top 3 scores into probabilities
         total_score = sum(score for _, score in top_3)
 
@@ -90,4 +113,13 @@ class AudioDatabase:
         
     def _scrub_fingerprints(self, song_id):
         """Removes a deleted song's tuples from the self.fingerprints."""
-        pass
+        keys_to_delete = []
+        for fingerprint_hash, matches in self.fingerprints.items():
+            filtered_matches = [entry for entry in matches if entry[0] != song_id]
+            if filtered_matches:
+                self.fingerprints[fingerprint_hash] = filtered_matches
+            else:
+                keys_to_delete.append(fingerprint_hash)
+
+        for fingerprint_hash in keys_to_delete:
+            del self.fingerprints[fingerprint_hash]
