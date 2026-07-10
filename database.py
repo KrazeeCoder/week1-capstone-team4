@@ -66,7 +66,10 @@ class AudioDatabase:
     # Nihanth Part:
     def store_fingerprints(self, song_id, fingerprints):
         """Appends fanout tuples to self.fingerprints."""
-        pass
+        for fingerprint_hash, anchor_time in fingerprints:
+            if fingerprint_hash not in self.fingerprints:
+                self.fingerprints[fingerprint_hash] = []
+            self.fingerprints[fingerprint_hash].append((song_id, anchor_time))
 
     def query(self, clip_fingerprints):
         """Handles the offset tallying and returns best match/confidence."""
