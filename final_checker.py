@@ -13,7 +13,7 @@ def identify_clip(samples, sample_rate, database):
 
     result = database.query(fingerprints)
 
-    if result is None:
+    if not matches:
         return None
     matches = result["best_matches"]
     
