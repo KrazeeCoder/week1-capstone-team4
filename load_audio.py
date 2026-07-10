@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io import wavfile
-
+from scipy.signal import resample_poly
 
 def load_audio(source, *, mic_duration=None, mic_sample_rate=44100):
     if source == "mic":
@@ -28,4 +28,11 @@ def load_audio(source, *, mic_duration=None, mic_sample_rate=44100):
     rate, data = wavfile.read(source)
     if data.ndim == 2:
         data = data[:, 0]
+
+    # Auto-resampling
+    if rate != mic_sample_rate:
+        print(f"Fixing sample rate: {rate}Hz -> {mic_sample_rate}Hz")
+        data = resample_poly(data, mic_sample_rate, rate)
+        rate = mic_sample_rate
+
     return data.astype(np.float64), rate
