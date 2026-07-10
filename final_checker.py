@@ -11,12 +11,13 @@ def identify_clip(samples, sample_rate, database):
     peaks = find_peaks(spectrogram)
     fingerprints = peaks_to_fingerprints(peaks)
 
-    matches = database.query(fingerprints)
+    result = database.query(fingerprints)
 
-    if matches is None or len(matches)==0:  
+    if result is None:
         return None
+    matches = result["best_matches"]
     
-    best_song_id = max(matches, key=matches.get) #gets the song_id with highest probility
+    best_song_id = max(matches, key=matches.get) 
     probability = matches[best_song_id]
 
     info = database.metadata[best_song_id]
