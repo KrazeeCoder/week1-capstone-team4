@@ -19,7 +19,9 @@ def add_song(db):
 	song_id = db.add_song(title, artist, wav_path)
 	db.store_fingerprints(song_id, fingerprints)
 	db.save_data()
-
+	
+	print(f"Stored {len(fingerprints)} fingerprints for song ID {song_id}.")
+	print(f"Added '{title}' by {artist} to the database.")
 
 def main():
 	db = AudioDatabase("data.pkl")
