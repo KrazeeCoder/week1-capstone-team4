@@ -66,7 +66,12 @@ class AudioDatabase:
     # Nihanth Part:
     def store_fingerprints(self, song_id, fingerprints):
         """Appends fanout tuples to self.fingerprints."""
-        pass
+        for fingerprint_hash, anchor_time in fingerprints:
+            if fingerprint_hash in self.fingerprints:
+                self.fingerprints[fingerprint_hash].append((song_id, anchor_time))
+            else:
+                self.fingerprints[fingerprint_hash] = [(song_id, anchor_time)]
+
 
 
     def query(self, clip_fingerprints):
@@ -98,9 +103,6 @@ class AudioDatabase:
         # Keep only the top 3 songs
         top_3 = song_scores[:3]
 
-        if not top_3:
-            return {"best_matches": {}}
-
         # Turn top 3 scores into probabilities
         total_score = sum(score for _, score in top_3)
 
@@ -114,13 +116,25 @@ class AudioDatabase:
         
     def _scrub_fingerprints(self, song_id):
         """Removes a deleted song's tuples from the self.fingerprints."""
-        keys_to_delete = []
-        for fingerprint_hash, matches in self.fingerprints.items():
-            filtered_matches = [entry for entry in matches if entry[0] != song_id]
-            if filtered_matches:
-                self.fingerprints[fingerprint_hash] = filtered_matches
-            else:
-                keys_to_delete.append(fingerprint_hash)
+        empty_keys = []
 
-        for fingerprint_hash in keys_to_delete:
+        for fingerprint_hash, songs_list in self.fingerprints.items():
+            # songs that don't match songid
+            filtered_songs = [
+                (stored_song_id, anchor_time)
+                for stored_song_id, anchor_time in songs_list
+                if stored_song_id != song_id
+            ]
+
+            if filtered_songs:
+                self.fingerprints[fingerprint_hash] = filtered_songs
+            else:
+                empty_keys.append(fingerprint_hash)
+        # if all the songs that have that peak_pair encoding is the one that is trying to be deleted.
+        for fingerprint_hash in empty_keys:
             del self.fingerprints[fingerprint_hash]
+
+    def delete_song(self, song_id):
+        self._scrub_fingerprints(song_id)
+        self.metadata.pop(song_id, None)    
+
