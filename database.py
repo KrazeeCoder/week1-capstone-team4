@@ -81,7 +81,8 @@ class AudioDatabase:
             matches = self.fingerprints.get(fingerprint_hash, [])
             for song_id, db_anchor_time in matches:
                 offset = db_anchor_time - clip_anchor_time
-                tally[(song_id, offset)] += 1
+                offset_bucket = offset // 4
+                tally[(song_id, offset_bucket)] += 1
 
         song_best_scores = {}
         for (song_id, offset), count in tally.items():
