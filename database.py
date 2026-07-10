@@ -1,5 +1,6 @@
 import pickle
 import os
+from collections import Counter
 import song_metadata
 
 class AudioDatabase:
@@ -67,50 +68,39 @@ class AudioDatabase:
     def store_fingerprints(self, song_id, fingerprints):
         """Appends fanout tuples to self.fingerprints."""
         for fingerprint_hash, anchor_time in fingerprints:
-            if fingerprint_hash not in self.fingerprints:
-                self.fingerprints[fingerprint_hash] = []
-            self.fingerprints[fingerprint_hash].append((song_id, anchor_time))
-
+            if fingerprint_hash in self.fingerprints:
+                self.fingerprints[fingerprint_hash].append((song_id, anchor_time))
+            else:
+                self.fingerprints[fingerprint_hash] = [(song_id, anchor_time)]
+                
     def query(self, clip_fingerprints):
         """Handles the offset tallying and returns best match/confidence."""
-        offset_tallies = {}
+        tally = Counter()
+        
         for fingerprint_hash, clip_anchor_time in clip_fingerprints:
-            peak_pair_matches = self.fingerprints.get(fingerprint_hash, [])
-
-            for song_id, db_anchor_time in peak_pair_matches:
+            matches = self.fingerprints.get(fingerprint_hash, [])
+            for song_id, db_anchor_time in matches:
                 offset = db_anchor_time - clip_anchor_time
+                tally[(song_id, offset)] += 1
 
-                if song_id not in offset_tallies:
-                    offset_tallies[song_id] = {}
-
-                if offset in offset_tallies[song_id]:
-                    offset_tallies[song_id][offset] += 1
-                else:
-                    offset_tallies[song_id][offset] = 1
-
-        # For each song, use its best offset tally as its score
-        song_scores = []
-        for song_id, tallies in offset_tallies.items():
-            best_score = max(tallies.values())
-            song_scores.append((song_id, best_score))
-
-        # Sort highest-scoring songs first
-        song_scores.sort(key=lambda item: item[1], reverse=True)
-
-        # Keep only the top 3 songs
-        top_3 = song_scores[:3]
-
-        if not top_3:
+        song_best_scores = {}
+        for (song_id, offset), count in tally.items():
+            if count > song_best_scores.get(song_id,0):
+                song_best_scores[song_id] = count
+        
+        if not song_best_scores:
             return {"best_matches": {}}
+        # highest-scoring songs first
+        all_scores = list(song_best_scores.items())
+        all_scores.sort(key=lambda item: item[1], reverse=True)
+        top_3 = all_scores[:3]
 
-        # Turn top 3 scores into probabilities
+        # top 3 scores into probabillities
         total_score = sum(score for _, score in top_3)
-
         best_matches = {
-            song_id: score / total_score
+            song_id: round((score / total_score) * 100, 2)
             for song_id, score in top_3
         }
-
         return {"best_matches": best_matches}
 
         
