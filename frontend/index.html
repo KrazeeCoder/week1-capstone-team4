@@ -3,99 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 FILE FOUND — chart any song from a five-second signal</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2l1.8 8.2L22 12l-8.2 1.8L12 22l-1.8-8.2L2 12l8.2-1.8z' fill='%2338bdf8'/></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+  <title>Song Finder</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="starfield" aria-hidden="true"></canvas>
-  <div class="aurora" aria-hidden="true"></div>
 
-  <nav class="nav">
-    <a class="brand" href="#top">
-      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.8 8.2L22 12l-8.2 1.8L12 22l-1.8-8.2L2 12l8.2-1.8z"/></svg>
-      <span class="brand-name">404 <em>file&nbsp;found</em></span>
-    </a>
-    <a class="nav-link" href="#library">Library</a>
-  </nav>
+  <h1>Song Finder</h1>
+  <p>Play or upload a song and find out what it is.</p>
 
-  <header class="hero" id="top">
-    <p class="eyebrow"><span class="dot"></span>audio fingerprinting · live</p>
-    <h1 class="wordmark">
-      <span class="grad">404</span>
-      <span class="wm-sub">File Found</span>
-    </h1>
-    <p class="lede">Play a song near your mic — or drop a .wav — and watch its signal chart. The file was never lost, just&nbsp;uncharted.</p>
+  <hr>
 
-    <section class="scanner glass">
-      <div class="scope">
-        <canvas id="constellation" aria-hidden="true"></canvas>
-        <p class="scope-empty" id="scope-empty">Tap scan, then play a song</p>
-      </div>
+  <h2>Identify a song</h2>
+  <p>Record from your microphone, or upload a .wav clip.</p>
+  <button id="scan-btn"><span id="scan-text">Start recording</span></button>
+  <p>Or upload a clip: <input type="file" id="clip-file" accept=".wav,audio/wav"></p>
+  <p id="match-result"></p>
 
-      <div class="scan-controls">
-        <button id="scan-btn" class="cta" aria-label="Start listening with the microphone; tap again to stop and identify the song">
-          <span class="cta-ring" aria-hidden="true"></span>
-          <svg class="cta-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="2.4" fill="currentColor"/>
-            <path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-            <path d="M4.8 4.8a10.2 10.2 0 0 0 0 14.4M19.2 4.8a10.2 10.2 0 0 1 0 14.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"/>
-          </svg>
-          <span class="cta-text" id="scan-text">Scan a song</span>
-        </button>
-        <label class="upload-link">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12h3l2-5 4 10 2-6 2 3h5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Load a .wav clip
-          <input type="file" id="clip-file" accept=".wav,audio/wav">
-        </label>
-      </div>
+  <hr>
 
-      <div id="match-result" class="result hidden" aria-live="polite"></div>
-    </section>
-  </header>
+  <h2>Library</h2>
+  <ul id="songs-list"></ul>
 
-  <main class="library" id="library">
-    <div class="section-head">
-      <h2>Library</h2>
-      <p class="section-sub">Tracks charted in the database</p>
-    </div>
+  <hr>
 
-    <div id="songs-grid" class="songs-grid" aria-live="polite"></div>
+  <h2>Add a song</h2>
+  <form id="add-form">
+    <p>Title: <input type="text" id="song-title"></p>
+    <p>Artist: <input type="text" id="song-artist"></p>
+    <p>Audio file (.wav): <input type="file" id="song-file" accept=".wav,audio/wav"></p>
+    <button type="submit" id="add-button">Add song</button>
+  </form>
+  <p id="add-result"></p>
 
-    <section class="add-card glass">
-      <h3>Add a track</h3>
-      <p class="add-sub">Index a full .wav so it can be matched later.</p>
-      <form id="add-form" novalidate>
-        <div class="field">
-          <label for="song-title">Title <span class="req">*</span></label>
-          <input type="text" id="song-title" autocomplete="off" placeholder="e.g. Midnight City">
-        </div>
-        <div class="field">
-          <label for="song-artist">Artist <span class="req">*</span></label>
-          <input type="text" id="song-artist" autocomplete="off" placeholder="e.g. M83">
-        </div>
-        <div class="field">
-          <label for="song-file">Audio file <span class="req">*</span></label>
-          <label class="file-drop" id="file-drop">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4l4 4M5 20h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span id="song-file-name">Choose a .wav file</span>
-            <input type="file" id="song-file" accept=".wav,audio/wav">
-          </label>
-        </div>
-        <button type="submit" id="add-button" class="btn-primary">Add to library</button>
-      </form>
-      <div id="add-result" class="result hidden" aria-live="polite"></div>
-    </section>
-  </main>
+  <hr>
 
-  <footer class="foot">
-    <span class="foot-brand">404 file found</span>
-    <span class="foot-sep">·</span> BWSI Week 1 capstone
-    <span class="foot-sep">·</span> <span class="mono">team_404@bwsi</span>
-  </footer>
+  <p>BWSI Week 1 capstone - Team 4</p>
 
   <script src="script.js"></script>
 </body>
