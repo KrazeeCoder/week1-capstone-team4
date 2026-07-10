@@ -53,6 +53,7 @@ class AudioDatabase:
             self.fingerprints[fingerprint_hash] = [(song_id, anchor_time)]
 
 
+
     def query(self, clip_fingerprints):
         """Handles the offset tallying and returns best match/confidence."""
         offset_tallies = {}
