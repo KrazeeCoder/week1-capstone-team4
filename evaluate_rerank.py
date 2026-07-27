@@ -11,53 +11,18 @@ This is the three-way outcome split (retrieval vs. ranking vs. rerank lift)
 called out in the capstone proposal.
 """
 import argparse
-from collections import Counter, OrderedDict
+from collections import Counter
 
 import numpy as np
 
 from database import AudioDatabase
 from load_audio import load_audio
 from random_clips import make_random_clip
-from eval_utils import query_clip, rank_of
+from eval_utils import query_clip, rank_of, LRUAudioCache
 from topological_rerank import rerank_candidates
 
 PITCH_SHIFTS_SEMITONES = [-4, -2, -1, 0, 1, 2, 4]
 TOP_N_FOR_RERANK = 5
-
-
-class LRUAudioCache:
-    """Bounded {song_id: (samples, rate)} cache, float32 to halve memory vs.
-    load_audio's float64. Full-length audio for this dataset is ~2GB as
-    float64 -- too much for a machine with only a few hundred MB free -- so
-    this caps resident audio to `capacity` songs and reloads on a miss
-    instead of holding everything at once.
-    """
-
-    def __init__(self, loader, capacity=6):
-        self._loader = loader
-        self._capacity = capacity
-        self._data = OrderedDict()
-
-    def __contains__(self, song_id):
-        return song_id in self._data
-
-    def __getitem__(self, song_id):
-        self._data.move_to_end(song_id)
-        return self._data[song_id]
-
-    def __setitem__(self, song_id, value):
-        samples, rate = value
-        self._data[song_id] = (samples.astype(np.float32, copy=False), rate)
-        self._data.move_to_end(song_id)
-        while len(self._data) > self._capacity:
-            self._data.popitem(last=False)
-
-    def get_or_load(self, song_id, filename):
-        if song_id in self:
-            return self[song_id]
-        samples, rate = self._loader(filename)
-        self[song_id] = (samples, rate)
-        return self[song_id]
 
 
 def classify_rerank(stage1_rank, rerank_rank, top_n):
