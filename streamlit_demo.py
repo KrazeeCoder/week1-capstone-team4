@@ -95,7 +95,7 @@ with tab_findings:
     st.info(
         "Numbers above are from a fixed sweep (`evaluate_rerank.py`, 20 songs x 6 pitch "
         "shifts x 10s clips) -- re-run it yourself to reproduce or extend.",
-        icon="i",
+        icon="ℹ️",
     )
 
 # --------------------------------------------------------------- Live demo --
