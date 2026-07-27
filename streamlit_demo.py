@@ -13,13 +13,16 @@ Two sections:
 """
 import matplotlib.pyplot as plt
 import numpy as np
+import soundfile as sf
 import streamlit as st
 
 from database import AudioDatabase
-from load_audio import load_audio
+from load_audio import load_audio, standardize_rate
 from random_clips import make_random_clip
 from eval_utils import query_clip, rank_of, LRUAudioCache
 from topological_rerank import rerank_candidates
+
+TARGET_RATE = 44100
 
 # Colorblind-safe categorical palette (Okabe-Ito), fixed assignment per series.
 COLOR_STAGE1 = "#0072B2"       # blue
@@ -100,8 +103,6 @@ with tab_findings:
 
 # --------------------------------------------------------------- Live demo --
 with tab_demo:
-    st.subheader("Try it on a real clip")
-
     db_path = st.sidebar.text_input("Database file", value="eval_data.pkl")
     top_n = st.sidebar.slider("Rerank top-N", 1, 10, 3)
     gate_ratio = st.sidebar.slider("Rerank confidence gate ratio", 1.0, 3.0, 1.5, 0.1)
@@ -122,68 +123,109 @@ with tab_demo:
         st.stop()
 
     audio_cache = get_audio_cache()
-
     titles = {song_id: f"{info['title']} -- {info['artist']}" for song_id, info in db.metadata.items()}
-    song_id = st.selectbox("Song", options=list(titles), format_func=lambda sid: titles[sid])
 
-    col_a, col_b, col_c = st.columns(3)
-    clip_length = col_a.slider("Clip length (s)", 3, 20, 10)
-    pitch_shift = col_b.slider("Pitch shift (semitones)", -6, 6, 0)
-    seed = col_c.number_input("Random seed", value=0, step=1)
-
-    if st.button("Identify", type="primary"):
-        with st.spinner("Loading audio..."):
-            try:
-                samples, rate = audio_cache.get_or_load(song_id, db.metadata[song_id]["filename"])
-            except FileNotFoundError:
-                st.error(f"Audio file not found: {db.metadata[song_id]['filename']}")
-                st.stop()
-
-        rng = np.random.default_rng(int(seed))
-        clip = make_random_clip(samples, clip_length, rate, rng).astype(np.float32)
-
-        if pitch_shift != 0:
-            import librosa
-            with st.spinner(f"Applying {pitch_shift:+d} semitone pitch shift..."):
-                clip = librosa.effects.pitch_shift(y=clip, sr=rate, n_steps=pitch_shift)
-
-        with st.spinner("Stage 1: fingerprint + query..."):
-            stage1_result = query_clip(clip, rate, db, k=max(10, top_n))
-        stage1_rank = rank_of(stage1_result, song_id)
-
-        with st.spinner("Stage 2: topological rerank..."):
-            reranked = rerank_candidates(
-                clip, rate, db, stage1_result, top_n=top_n, audio_cache=audio_cache, gate_ratio=gate_ratio,
-            )
-        rerank_rank = next((i + 1 for i, (sid, _s) in enumerate(reranked) if sid == song_id), None)
-
-        col1, col2 = st.columns(2)
-
-        def render_ranked(container, title, ranked_list, true_rank):
-            with container:
-                st.markdown(f"**{title}**")
-                if not ranked_list:
-                    st.warning("No candidates retrieved (retrieval failure).")
-                    return
-                for idx, (sid, score) in enumerate(ranked_list[:top_n]):
-                    label = titles.get(sid, f"song {sid}")
-                    row = f"{idx + 1}. {label}  (score={score})"
-                    if sid == song_id:
-                        st.success(row)
-                    else:
-                        st.text(row)
+    def render_ranked(container, title, ranked_list, highlight_id=None, true_rank=None):
+        with container:
+            st.markdown(f"**{title}**")
+            if not ranked_list:
+                st.warning("No candidates retrieved.")
+                return
+            for idx, (sid, score) in enumerate(ranked_list[:top_n]):
+                label = titles.get(sid, f"song {sid}")
+                row = f"{idx + 1}. {label}  (score={score})"
+                if highlight_id is not None and sid == highlight_id:
+                    st.success(row)
+                else:
+                    st.text(row)
+            if highlight_id is not None:
                 if true_rank is None:
                     st.caption("True song never shared a fingerprint hash with this clip.")
                 elif true_rank > top_n:
                     st.caption(f"True song retrieved at rank {true_rank} (outside top-{top_n}).")
 
-        render_ranked(col1, "Stage 1 (hash-tally)", stage1_result["ranked"], stage1_rank)
-        render_ranked(col2, f"+ Topological rerank (top-{top_n})", reranked, rerank_rank)
+    def run_identification(clip, rate, true_song_id=None):
+        with st.spinner("Stage 1: fingerprint + query..."):
+            stage1_result = query_clip(clip, rate, db, k=max(10, top_n))
+        with st.spinner("Stage 2: topological rerank..."):
+            reranked = rerank_candidates(
+                clip, rate, db, stage1_result, top_n=top_n, audio_cache=audio_cache, gate_ratio=gate_ratio,
+            )
 
-        m1, m2 = st.columns(2)
-        m1.metric("Stage 1 rank", stage1_rank if stage1_rank else "not retrieved")
-        m2.metric(
-            "Rerank rank", rerank_rank if rerank_rank else "not retrieved",
-            delta=(None if stage1_rank is None or rerank_rank is None else rerank_rank - stage1_rank),
-            delta_color="inverse",
+        col1, col2 = st.columns(2)
+        stage1_rank = rank_of(stage1_result, true_song_id) if true_song_id is not None else None
+        rerank_rank = None
+        if true_song_id is not None:
+            rerank_rank = next((i + 1 for i, (sid, _s) in enumerate(reranked) if sid == true_song_id), None)
+
+        render_ranked(col1, "Stage 1 (hash-tally)", stage1_result["ranked"], true_song_id, stage1_rank)
+        render_ranked(col2, f"+ Topological rerank (top-{top_n})", reranked, true_song_id, rerank_rank)
+
+        if true_song_id is not None:
+            m1, m2 = st.columns(2)
+            m1.metric("Stage 1 rank", stage1_rank if stage1_rank else "not retrieved")
+            m2.metric(
+                "Rerank rank", rerank_rank if rerank_rank else "not retrieved",
+                delta=(None if stage1_rank is None or rerank_rank is None else rerank_rank - stage1_rank),
+                delta_color="inverse",
+            )
+        elif stage1_result["ranked"]:
+            best_id, best_score = stage1_result["ranked"][0]
+            st.info(f"Best guess: **{titles.get(best_id, best_id)}** (Stage 1 score {best_score})")
+
+    mode = st.radio(
+        "Query source",
+        ["Record from microphone (real test)", "Known clip from database (controlled test)"],
+    )
+
+    # ---------------------------------------------------------- Mic mode --
+    if mode == "Record from microphone (real test)":
+        st.caption(
+            "Uses your browser's microphone (Streamlit's st.audio_input) -- not a "
+            "simulated clip. Play a song near your mic and record a few seconds."
         )
+        audio_value = st.audio_input("Record a clip of a song playing")
+
+        if audio_value is not None:
+            st.audio(audio_value)
+            if st.button("Identify", type="primary"):
+                with st.spinner("Decoding recording..."):
+                    data, sr = sf.read(audio_value)
+                    if data.ndim == 2:
+                        data = data.mean(axis=1)
+                    clip, rate = standardize_rate(data, sr, TARGET_RATE)
+                    clip = clip.astype(np.float32)
+                run_identification(clip, rate, true_song_id=None)
+        else:
+            st.info("Click the microphone icon above to record.", icon="🎙️")
+
+    # ------------------------------------------------------- Database mode --
+    else:
+        st.caption(
+            "Cuts a clip from a song already in the database (known answer), optionally "
+            "pitch-shifted -- useful for reproducing the Findings chart on a single example."
+        )
+        song_id = st.selectbox("Song", options=list(titles), format_func=lambda sid: titles[sid])
+
+        col_a, col_b, col_c = st.columns(3)
+        clip_length = col_a.slider("Clip length (s)", 3, 20, 10)
+        pitch_shift = col_b.slider("Pitch shift (semitones)", -6, 6, 0)
+        seed = col_c.number_input("Random seed", value=0, step=1)
+
+        if st.button("Identify", type="primary"):
+            with st.spinner("Loading audio..."):
+                try:
+                    samples, rate = audio_cache.get_or_load(song_id, db.metadata[song_id]["filename"])
+                except FileNotFoundError:
+                    st.error(f"Audio file not found: {db.metadata[song_id]['filename']}")
+                    st.stop()
+
+            rng = np.random.default_rng(int(seed))
+            clip = make_random_clip(samples, clip_length, rate, rng).astype(np.float32)
+
+            if pitch_shift != 0:
+                import librosa
+                with st.spinner(f"Applying {pitch_shift:+d} semitone pitch shift..."):
+                    clip = librosa.effects.pitch_shift(y=clip, sr=rate, n_steps=pitch_shift)
+
+            run_identification(clip, rate, true_song_id=song_id)
