@@ -72,7 +72,7 @@ def classify_rerank(stage1_rank, rerank_rank, top_n):
     return "rerank_no_help"
 
 
-def run(db_path, clip_length, clips_per_song, seed, top_n, cache_capacity, max_songs):
+def run(db_path, clip_length, clips_per_song, seed, top_n, cache_capacity, max_songs, gate_ratio):
     import librosa
 
     db = AudioDatabase(db_path)
@@ -111,7 +111,7 @@ def run(db_path, clip_length, clips_per_song, seed, top_n, cache_capacity, max_s
                 stage1_rank = rank_of(stage1_result, song_id)
 
                 reranked = rerank_candidates(
-                    modified, rate, db, stage1_result, top_n=top_n, audio_cache=audio_cache
+                    modified, rate, db, stage1_result, top_n=top_n, audio_cache=audio_cache, gate_ratio=gate_ratio
                 )
                 rerank_rank = None
                 for idx, (candidate_id, _score) in enumerate(reranked):
@@ -152,5 +152,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--cache-capacity", type=int, default=6, help="max songs held resident in the audio LRU cache")
     parser.add_argument("--max-songs", type=int, default=None, help="limit how many DB songs are used as query sources")
+    parser.add_argument("--gate-ratio", type=float, default=1.5, help="skip reranking when stage1 top score >= gate_ratio * runner-up")
     args = parser.parse_args()
-    run(args.db, args.clip_length, args.clips_per_song, args.seed, args.top_n, args.cache_capacity, args.max_songs)
+    run(
+        args.db, args.clip_length, args.clips_per_song, args.seed, args.top_n,
+        args.cache_capacity, args.max_songs, args.gate_ratio,
+    )

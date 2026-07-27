@@ -63,7 +63,7 @@ def topo_distance(sig_a, sig_b):
     return float(np.linalg.norm(sig_a - sig_b))
 
 
-def rerank_candidates(query_samples, rate, db, stage1_result, top_n=5, audio_cache=None):
+def rerank_candidates(query_samples, rate, db, stage1_result, top_n=5, audio_cache=None, gate_ratio=1.5):
     """Reranks the top_n Stage-1 candidates using the topological signature.
 
     `audio_cache` is an optional {song_id: (samples, rate)} dict. Reranking
@@ -72,13 +72,26 @@ def rerank_candidates(query_samples, rate, db, stage1_result, top_n=5, audio_cac
     dominant cost of batch evaluation -- callers that rerank many clips
     against the same DB should load each song once and pass the cache in.
 
+    `gate_ratio`: skip reranking entirely when Stage 1's top hash-tally score
+    already beats the runner-up by this ratio. Measured empirically: without
+    a gate, the topological signature is noisy enough to demote roughly as
+    many already-correct Stage-1 top-1 picks as it fixes ranking failures
+    elsewhere (net lift near zero). Stage 1's tally score is a reasonable
+    confidence proxy -- a landslide winner is rarely worth second-guessing,
+    so only ambiguous cases get sent through the (expensive, noisier)
+    topological comparison.
+
     Returns a list of (song_id, stage1_score) ordered by topological
     similarity, best first. Falls back to the original Stage-1 order for any
-    candidate whose audio/window can't be turned into a signature.
+    candidate whose audio/window can't be turned into a signature, or when
+    the gate above triggers.
     """
     ranked = stage1_result["ranked"][:top_n]
     if not ranked:
         return []
+
+    if len(ranked) > 1 and ranked[0][1] >= gate_ratio * ranked[1][1]:
+        return ranked
 
     offsets = stage1_result["offsets"]
     query_sig = chroma_signature(query_samples, rate)
