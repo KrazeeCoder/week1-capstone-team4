@@ -28,7 +28,7 @@ def _local_peaks(data, rows, cols, amp_min):
     return peaks
 
 
-def find_peaks(spectrogram, *, neighborhood_iterations=20, amp_min_percentile=75):
+def find_peaks(spectrogram, *, neighborhood_iterations=20, amp_min_percentile=60):
     footprint = iterate_structure(generate_binary_structure(2, 1), neighborhood_iterations)
     rows, cols = np.nonzero(footprint)
     rows = rows - footprint.shape[0] // 2

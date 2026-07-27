@@ -73,10 +73,16 @@ class AudioDatabase:
             else:
                 self.fingerprints[fingerprint_hash] = [(song_id, anchor_time)]
                 
-    def query(self, clip_fingerprints):
-        """Handles the offset tallying and returns best match/confidence."""
+    def query(self, clip_fingerprints, k=3):
+        """Handles the offset tallying and returns best match/confidence.
+
+        `ranked` holds every candidate song that got at least one hash hit,
+        best score first -- this is what retrieval-vs-ranking evaluation
+        needs (recall@k for any k), independent of the top-3 probability
+        display used by the interactive demo.
+        """
         tally = Counter()
-        
+
         for fingerprint_hash, clip_anchor_time in clip_fingerprints:
             matches = self.fingerprints.get(fingerprint_hash, [])
             for song_id, db_anchor_time in matches:
@@ -85,28 +91,24 @@ class AudioDatabase:
                 tally[(song_id, offset_bucket)] += 1
 
         song_best_scores = {}
+        song_best_offset = {}
         for (song_id, offset), count in tally.items():
-            if count > song_best_scores.get(song_id,0):
+            if count > song_best_scores.get(song_id, 0):
                 song_best_scores[song_id] = count
-        
-        if not song_best_scores:
-            return {"best_matches": {}}
-        # highest-scoring songs first
-        all_scores = list(song_best_scores.items())
-        all_scores.sort(key=lambda item: item[1], reverse=True)
-        top_3 = all_scores[:3]
-        for (song_id, offset), count in tally.most_common():
-            print(f"song_id={song_id}, offset={offset}, count={count}")
-        if not top_3:
-            return {"best_matches": {}}
+                song_best_offset[song_id] = offset
 
-        # top 3 scores into probabillities
-        total_score = sum(score for _, score in top_3)
+        ranked = sorted(song_best_scores.items(), key=lambda item: item[1], reverse=True)
+
+        if not ranked:
+            return {"best_matches": {}, "ranked": [], "offsets": {}}
+
+        top_k = ranked[:k]
+        total_score = sum(score for _, score in top_k)
         best_matches = {
             song_id: round((score / total_score) * 100, 2)
-            for song_id, score in top_3
+            for song_id, score in top_k
         }
-        return {"best_matches": best_matches}
+        return {"best_matches": best_matches, "ranked": ranked, "offsets": song_best_offset}
 
         
     def _scrub_fingerprints(self, song_id):
