@@ -14,8 +14,9 @@ def add_song(db):
 	samples, rate = load_audio(wav_path)
 	spectrogram, _, _ = create_spectrogram(samples, rate)
 	peaks = find_peaks(spectrogram)
+	print(f"Found {len(peaks)} peaks in the spectrogram.")
 	fingerprints = peaks_to_fingerprints(peaks)
-
+	print(f"Generated {len(fingerprints)} fingerprints from the peaks.")
 	song_id = db.add_song(title, artist, wav_path)
 	db.store_fingerprints(song_id, fingerprints)
 	db.save_data()

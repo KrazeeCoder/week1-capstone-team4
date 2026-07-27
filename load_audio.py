@@ -28,11 +28,14 @@ def load_audio(source, *, mic_duration=None, mic_sample_rate=44100):
     rate, data = wavfile.read(source)
     if data.ndim == 2:
         data = data[:, 0]
+    data = data.astype(np.float64)
 
     # Auto-resampling
     if rate != mic_sample_rate:
         print(f"Fixing sample rate: {rate}Hz -> {mic_sample_rate}Hz")
+        # resample_poly silently returns all-zeros on integer PCM input in
+        # this scipy build, so data must already be float before this call.
         data = resample_poly(data, mic_sample_rate, rate)
         rate = mic_sample_rate
 
-    return data.astype(np.float64), rate
+    return data, rate
