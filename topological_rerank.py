@@ -1,27 +1,3 @@
-"""Phase 2: topological reranker for the top-N candidates Stage 1 retrieves.
-
-Method (0-dimensional persistent homology over chroma-CQT):
-  1. Take a chroma-CQT frame sequence for the query clip and for the aligned
-     window of each Stage-1 candidate (alignment comes from the offset
-     Stage 1 already computed from its hash-tally voting).
-  2. Time-normalize both sequences to a fixed number of frames -- this
-     cancels a uniform linear time-stretch, the same invariance Panako gets
-     from its time-difference-ratio hash.
-  3. Treat each normalized sequence as a point cloud (one 12-dim point per
-     frame) and compute its 0-dim persistence diagram via single-linkage
-     clustering (the minimum-spanning-tree edge weights = H0 death times).
-     A uniform pitch shift permutes chroma-bin coordinates identically for
-     every frame, which is an isometry of this point cloud -- so the H0
-     signature is pitch-shift invariant *by construction*, not just
-     empirically, for integer semitone shifts (fractional shifts smear
-     across neighboring bins, so the invariance degrades gracefully).
-  4. Rerank the Stage-1 candidates by L2 distance between persistence
-     signatures (ascending = more similar).
-
-This is a lightweight, dependency-free stand-in for full Vietoris-Rips
-persistent homology -- accurate for H0, and sufficient to test whether
-reranking recovers songs Stage-1 ranked below #1.
-"""
 import numpy as np
 import librosa
 from scipy.spatial.distance import pdist, squareform
@@ -36,9 +12,6 @@ MIN_WINDOW_SECONDS = 3
 
 
 def chroma_signature(samples, rate, n_frames=N_FRAMES):
-    """Returns a length-(n_frames - 1) sorted array of H0 death times, or
-    None if the clip is too short to build a meaningful point cloud.
-    """
     if len(samples) < rate * 1:
         return None
     chroma = librosa.feature.chroma_cqt(
@@ -46,22 +19,52 @@ def chroma_signature(samples, rate, n_frames=N_FRAMES):
     )
     if chroma.shape[1] < 2:
         return None
-
+#Chroma collapses all freqs into 12 bins, one pitch/class
+#Pitch class is more robust to small pitch shifts than raw frequency.
+#Output(12, num_time_frames), each column is a time slice.
     t_old = np.linspace(0.0, 1.0, chroma.shape[1])
     t_new = np.linspace(0.0, 1.0, n_frames)
     points = np.stack([np.interp(t_new, t_old, chroma[bin_idx]) for bin_idx in range(chroma.shape[0])], axis=1)
-
+#Resamples both onto the same 40 point timeline regardless of original duration, so that the MST is always 39 edges and the signature is always 39 death times.
     dists = squareform(pdist(points))
     mst = minimum_spanning_tree(dists)
     death_times = np.sort(mst.data)
+#Essentially, what the min spanning tree data structure does is store the edges of the tree in a 1D array, sorted by weight. 
+#The weight of each edge is the distance between two points in the chroma space. The death times are the weights of the edges 
+# in the minimum spanning tree, which represent the "lifetimes" of the features in the topological signature. 
+# The number of death times should be equal to n_frames - 1, 
+# since a minimum spanning tree for n points has n - 1 edges. If this condition is not met, 
+# it indicates that something went wrong in the computation, and we return None.
+#This is motivated by persistent homology: imagine growing a ball of radius r
+#around each of the 40 points, r increasing from 0. At r=0 every point is its own
+#cluster (40 components). As r grows, two points' balls touch once r reaches half
+#their distance apart, and their clusters merge -- one component "dies" at that r.
+#The sorted list of all these merge-radii IS the persistence diagram (birth=0 for
+#every point, death=the radius it merged at). That sorted list of merge-radii is
+#exactly the sorted edge weights of the minimum spanning tree (a known equivalence:
+#single-linkage clustering merge heights = MST edge weights). So instead of
+#simulating the growing radius, we just build the MST directly and sort its edges 
+#same answer, far cheaper.
+
     if len(death_times) != n_frames - 1:
         return None
     return death_times
-
+#Small correction to how this is usually phrased: the signature isn't "isometric to"
+#the chroma representation -- it's a lossy summary (many different point clouds can
+#produce the same sorted death-times). What's actually true, and what buys pitch-shift
+#invariance: the signature only depends on PAIRWISE DISTANCES between the 40 points,
+#and a uniform pitch shift permutes all 12 chroma-bin coordinates the same way for
+#every point. Permuting coordinates identically for every point is an isometry of the
+#point cloud (it doesn't change any distance between any two points), so the MST edge
+#weights -- and therefore the signature -- come out identical before and after a
+#uniform pitch shift. It's invariant TO an isometry, not isometric itself.
 
 def topo_distance(sig_a, sig_b):
     return float(np.linalg.norm(sig_a - sig_b))
-
+#compares two signatures by computing the Euclidean distance between their death times.
+#We don't need to use a more sophisticated distance metric because the topological signature 
+# is already a compact representation of the original chroma features, and 
+# the Euclidean distance is sufficient to capture the differences between them.
 
 def rerank_candidates(query_samples, rate, db, stage1_result, top_n=5, audio_cache=None, gate_ratio=1.5):
     """Reranks the top_n Stage-1 candidates using the topological signature.
